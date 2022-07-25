@@ -99,8 +99,9 @@ public class DivisionDeathMutation extends AgentGrid2D<CellEx> {
         ArrayList<Double[]>out=new ArrayList<>();
         //int x=500,y=500,scaleFactor=2;
         int x=1000,y=1000,scaleFactor=1;
+        String outputFileName = "pop.out";
         GridWindow vis=new GridWindow(x,y,scaleFactor);//used for visualization
-        DivisionDeathMutation grid=new DivisionDeathMutation(x,y,vis);
+        DivisionDeathMutation grid=new DivisionDeathMutation(x,y,vis,outputFileName);
         grid.InitTumor(5);
         for (int tick = 0; tick < 10000000; tick++) {
             vis.TickPause(0);//set to nonzero value to cap tick rate.
