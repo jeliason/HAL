@@ -109,103 +109,46 @@ public class myDivisionDeathMutation extends AgentGrid2D<CellEx> {
 //        IncTick();//increments timestep, including newly generated cells in the next round of iteration
     }
 
-    public static void main(String[]args){
-        long startTime = System.currentTimeMillis();
-        ArrayList<Double[]>out=new ArrayList<>();
-        //int x=500,y=500,scaleFactor=2;
+    public static void main(String[] args){
         int x=1000,y=1000,scaleFactor=1;
-        int TOTAL_TIME = 1500;
-        int MAX_TRIES = 100;
-        int MAX_POP_SIZE = 300000;
-        int TOTAL_MIN_AGENTS = 75000;
-        int TOTAL_GOOD_SIMS = 10000;
-        int numGoodSims = 0;
-        int BOX_SIZE = 50;
-        int snapFrequency = 10;
-        double reqDensity = 0.7;
-        while (numGoodSims < TOTAL_GOOD_SIMS) {
-            int TOTAL_WRITTEN_AGENTS = 0;
-            GridWindow vis=new GridWindow(x,y,scaleFactor, false);//used for visualization
-            String date = new SimpleDateFormat("dd-MM-yyyy").format(new Date());
-            Rand rand = new Rand();
+        GridWindow vis=new GridWindow(x,y,scaleFactor, false);//used for visualization
 
-            double div_prob = rand.Double(0.2) + 0.1;
-            double mut_prob = rand.Double(0.1);
-            double die_prob = rand.Double(0.2) + 0.05;
-            double mut_advantage = rand.Double(0.3) + 0.9;
+        String output_filename = args[0];
+        int write_frequency = Integer.parseInt(args[1]);
+        int TOTAL_TIME = Integer.parseInt(args[2]);
+        int MAX_POP_SIZE = Integer.parseInt(args[3]);
 
-            String dataPath = "/home/joeleliason/Dropbox (University of Michigan)/Projects/tumorp2p/data/raw/HAL/DivisionDeathMutation/";
-            String guid = java.util.UUID.randomUUID().toString();
-            String filename =  dataPath +
-                    date + "_" + guid +  "_" + "agents.csv";
+        double div_prob = Double.parseDouble(args[4]);
+        double mut_prob = Double.parseDouble(args[5]);
+        double die_prob = Double.parseDouble(args[6]);
+        double mut_advantage = Double.parseDouble(args[7]);
 
-            JsonObject paramsJson = new JsonObject();
-            paramsJson.put("DIV_PROB", div_prob);
-            paramsJson.put("MUT_PROB", mut_prob);
-            paramsJson.put("DIE_PROB", die_prob);
-            paramsJson.put("MUT_ADVANTAGE", mut_advantage);
-            String outputParamsPath = dataPath + date + "_" + guid + "_" + "params.json";
-            try {
-                FileWriter outputParams2 = new FileWriter(outputParamsPath);
-                outputParams2.write(paramsJson.toJson());
-                outputParams2.close();
-            } catch (IOException e) {
-                e.printStackTrace();
+
+        FileIO outputFile=new FileIO(output_filename,"w");
+
+        myDivisionDeathMutation grid=new myDivisionDeathMutation(x,y,vis, div_prob, mut_prob, die_prob, mut_advantage);
+
+        grid.InitTumor(5);
+        ArrayList<CellEx> sampledCells = new ArrayList<>();
+        int[] outputLine = new int[4];
+        System.out.println("Starting simulation...");
+        for (int tick = 0; tick < TOTAL_TIME; tick++) {
+            if (grid.Pop() > MAX_POP_SIZE) {
+                break;
             }
-
-            FileIO outputFile=new FileIO(filename,"w");
-
-            myDivisionDeathMutation grid=new myDivisionDeathMutation(x,y,vis, div_prob, mut_prob, die_prob, mut_advantage);
-//            myDivisionDeathMutation grid=new myDivisionDeathMutation(x,y,vis, 0.5, 0.003, 0.5, 0.9);
-//            myDivisionDeathMutation grid=new myDivisionDeathMutation(x,y,vis);
-
-            grid.InitTumor(5);
-            ArrayList<CellEx> sampledCells = new ArrayList<>();
-            int[] outputLine = new int[4];
-            String outputString = "";
-            System.out.println("Starting simulation...");
-            for (int tick = 0; tick < TOTAL_TIME; tick++) {
-                if (grid.Pop() > MAX_POP_SIZE) {
-                    break;
+            grid.StepCells();
+            if (tick % write_frequency == 0) {
+                    System.out.println(tick);
+                for (CellEx cell : grid) {
+                    outputLine[0] = cell.Xsq();
+                    outputLine[1] = cell.Ysq();
+                    outputLine[2] = cell.nMutations;
+                    outputLine[3] = tick;
+                    outputFile.Write(Util.ArrToString(outputLine, ",") + "\n");
                 }
-                vis.TickPause(0);//set to nonzero value to cap tick rate.
-                grid.StepCells();
-                if (tick % snapFrequency == 0) {
-//                    System.out.println(tick);
-//                    System.out.println(grid.Pop());
-                    int tries = 0;
-                    int xCorner = 0;
-                    int yCorner = 0;
-                    outputString = "";
-                    while (tries < MAX_TRIES && (double) sampledCells.size() / BOX_SIZE / BOX_SIZE < reqDensity) {
-                        sampledCells.clear();
-                        xCorner = grid.rn.Int(x - BOX_SIZE);
-                        yCorner = grid.rn.Int(y - BOX_SIZE);
-                        grid.GetAgentsRect(sampledCells, xCorner, yCorner, BOX_SIZE, BOX_SIZE);
-                        tries++;
-                    }
-                    TOTAL_WRITTEN_AGENTS += sampledCells.size();
-                    for (CellEx cell : sampledCells) {
-                        outputLine[0] = cell.Xsq() - xCorner;
-                        outputLine[1] = cell.Ysq() - yCorner;
-                        outputLine[2] = cell.nMutations;
-                        outputLine[3] = tick;
-                        outputString = outputString + Util.ArrToString(outputLine, ",") + "\n";
-                    }
-                    outputFile.Write(outputString);
-                    sampledCells.clear();
-                }
+                sampledCells.clear();
             }
-            outputFile.Close();
-            System.out.println("Finished sim, end population size: " + grid.Pop());
-            if (TOTAL_WRITTEN_AGENTS >= TOTAL_MIN_AGENTS) {
-                numGoodSims += 1;
-            }
-            System.out.println("Number of good sims: " + numGoodSims);
         }
-        long endTime = System.currentTimeMillis();
-        long duration = endTime - startTime;
-        System.out.println("All sims finished, took " + (duration / 1000) + " seconds (" + duration + " ms)");
-        System.exit(0);
+        outputFile.Close();
     }
 }
